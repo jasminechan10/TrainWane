@@ -12,6 +12,12 @@ function App() {
   const [crossings, setCrossings] = useState([]);
   const [sightings, setSightings] = useState([]);
 
+  const getLikelihoodColor = (likelihood) => {
+    if (likelihood === "High") return "#ef4444";
+    if (likelihood === "Medium") return "#f59e0b";
+    return "#22c55e";
+  };
+
   const fetchCrossings = async () => {
     try {
       const response = await fetch("http://127.0.0.1:8000/crossings");
@@ -43,15 +49,21 @@ function App() {
           crossing_id: crossing.id,
           crossing_name: crossing.name,
           railroad: crossing.railroad,
-          timestamp: new Date().toISOString(),
-          confidence_score: 1.0,
+          latitude: crossing.latitude,
+          longitude: crossing.longitude,
+          direction: "Unknown",
+          train_type: "Freight",
         }),
       });
 
-      const data = await response.json();
-      console.log(data);
+      if (!response.ok) {
+        throw new Error("Failed to report train");
+      }
+
+      await response.json();
 
       await fetchSightings();
+      await fetchCrossings();
 
       alert("Train reported!");
     } catch (error) {
@@ -116,14 +128,35 @@ function App() {
                 position={[crossing.latitude, crossing.longitude]}
               >
                 <Popup>
-                  <div style={{ minWidth: "180px" }}>
+                  <div style={{ minWidth: "210px" }}>
                     <strong>{crossing.name}</strong>
-                    <br />
-                    Railroad: {crossing.railroad}
-                    <br />
-                    Train Likelihood: {crossing.risk_level}
-                    <br />
-                    <br />
+
+                    <p style={{ margin: "8px 0 4px" }}>
+                      Railroad: {crossing.railroad}
+                    </p>
+
+                    <p style={{ margin: "4px 0" }}>
+                      City: {crossing.city}, {crossing.state}
+                    </p>
+
+                    <p style={{ margin: "8px 0" }}>
+                      Train Likelihood:{" "}
+                      <span
+                        style={{
+                          backgroundColor: getLikelihoodColor(
+                            crossing.train_likelihood
+                          ),
+                          color: "white",
+                          padding: "4px 8px",
+                          borderRadius: "999px",
+                          fontWeight: "bold",
+                          fontSize: "12px",
+                        }}
+                      >
+                        {crossing.train_likelihood}
+                      </span>
+                    </p>
+
                     <button
                       onClick={() => reportTrain(crossing)}
                       style={{
@@ -134,6 +167,8 @@ function App() {
                         borderRadius: "8px",
                         cursor: "pointer",
                         fontWeight: "bold",
+                        marginTop: "8px",
+                        width: "100%",
                       }}
                     >
                       Report Train
@@ -158,9 +193,18 @@ function App() {
             flexDirection: "column",
           }}
         >
-          <h2 style={{ marginTop: 0, marginBottom: "12px" }}>
-            Recent Sightings
-          </h2>
+          <div style={{ marginBottom: "12px" }}>
+            <h2 style={{ margin: 0 }}>Recent Sightings</h2>
+            <p
+              style={{
+                margin: "6px 0 0",
+                color: "#94a3b8",
+                fontSize: "14px",
+              }}
+            >
+              Newest reports appear first.
+            </p>
+          </div>
 
           <div
             style={{
@@ -183,9 +227,9 @@ function App() {
               >
                 {[...sightings]
                   .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                  .map((sighting, index) => (
+                  .map((sighting) => (
                     <div
-                      key={index}
+                      key={sighting.id}
                       style={{
                         backgroundColor: "#0f172a",
                         border: "1px solid #334155",
@@ -194,9 +238,15 @@ function App() {
                       }}
                     >
                       <strong>{sighting.crossing_name}</strong>
+
                       <p style={{ margin: "6px 0", color: "#cbd5e1" }}>
-                        Railroad: {sighting.railroad}
+                        Railroad: {sighting.railroad || "Unknown"}
                       </p>
+
+                      <p style={{ margin: "6px 0", color: "#cbd5e1" }}>
+                        Type: {sighting.train_type || "Unknown"}
+                      </p>
+
                       <p
                         style={{
                           margin: 0,
