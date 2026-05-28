@@ -125,11 +125,7 @@ train_sightings = []
 
 @app.post("/sightings")
 def report_train(sighting: dict):
-    print("NEW TRAIN SIGHTING RECEIVED:")
-    print(sighting)
-
     train_sightings.append(sighting)
-
     return {
         "message": "Train sighting reported",
         "sighting": sighting
