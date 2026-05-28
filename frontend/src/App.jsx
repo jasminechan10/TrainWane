@@ -39,6 +39,14 @@ function App() {
               <strong>{crossing.name}</strong>
               <br />
               Railroad: {crossing.railroad}
+              <br />
+              Train Likelihood: {crossing.risk_level}
+              <br />
+              <button
+                onClick={() => reportTrain(crossing)}
+              >
+                Report Train
+              </button>
             </Popup>
           </Marker>
         ))}
@@ -46,5 +54,25 @@ function App() {
     </div>
   );
 }
+
+const reportTrain = async (crossing) => {
+  const response = await fetch("http://127.0.0.1:8000/sightings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      crossing_id: crossing.id,
+      crossing_name: crossing.name,
+      railroad: crossing.railroad,
+      timestamp: new Date().toISOString(),
+      confidence_score: 1.0,
+    }),
+  });
+
+  const data = await response.json();
+  console.log(data);
+  alert("Train reported!");
+};
 
 export default App;
