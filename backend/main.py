@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from database import engine, SessionLocal
 from models import Base, TrainSighting
+from zoneinfo import ZoneInfo
 
 
 Base.metadata.create_all(bind=engine)
@@ -181,6 +182,8 @@ def get_crossings(db: Session = Depends(get_db)):
 
 @app.post("/sightings")
 def report_train(sighting: TrainSightingCreate, db: Session = Depends(get_db)):
+    central_time = datetime.now(ZoneInfo("America/Chicago"))
+
     new_sighting = TrainSighting(
         crossing_id=sighting.crossing_id,
         crossing_name=sighting.crossing_name,
@@ -189,6 +192,7 @@ def report_train(sighting: TrainSightingCreate, db: Session = Depends(get_db)):
         longitude=sighting.longitude,
         direction=sighting.direction,
         train_type=sighting.train_type,
+        local_hour=central_time.hour,
     )
 
     db.add(new_sighting)
@@ -210,3 +214,49 @@ def get_sightings(db: Session = Depends(get_db)):
     )
 
     return sightings
+
+
+
+def calculate_time_based_likelihood(railroad: str, selected_time: str, db: Session):
+    selected_hour = int(selected_time.split(":")[0])
+
+    sightings = (
+        db.query(TrainSighting)
+        .filter(TrainSighting.railroad == railroad)
+        .all()
+    )
+
+    matching_sightings = []
+
+    for sighting in sightings:
+        sighting_hour = sighting.local_hour
+
+        if sighting_hour == selected_hour:
+            matching_sightings.append(sighting)
+
+    count = len(matching_sightings)
+
+    if count >= 4:
+        likelihood = "High"
+    elif count >= 1:
+        likelihood = "Medium"
+    else:
+        likelihood = "Low"
+
+    return {
+        "railroad": railroad,
+        "requested_time": selected_time,
+        "hour_checked": selected_hour,
+        "historical_sightings": count,
+        "likelihood": likelihood,
+        "message": f"{railroad} has {likelihood.lower()} train likelihood around {selected_time}.",
+    }
+
+
+@app.get("/predict/railroad")
+def predict_railroad(
+    railroad: str = Query(...),
+    time: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    return calculate_time_based_likelihood(railroad, time, db)

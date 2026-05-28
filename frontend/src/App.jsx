@@ -254,7 +254,11 @@ function App() {
                           fontSize: "14px",
                         }}
                       >
-                        {new Date(sighting.timestamp).toLocaleString()}
+                        {new Date(
+                          sighting.timestamp.endsWith("Z")
+                            ? sighting.timestamp
+                            : sighting.timestamp + "Z"
+                        ).toLocaleString()}
                       </p>
                     </div>
                   ))}

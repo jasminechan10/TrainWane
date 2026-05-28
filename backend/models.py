@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime
-from datetime import datetime
+from datetime import datetime, timezone
 from database import Base
 
 
@@ -14,4 +14,5 @@ class TrainSighting(Base):
     longitude = Column(Float, nullable=False)
     direction = Column(String, nullable=True)
     train_type = Column(String, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)) 
+    local_hour = Column(Integer, nullable=False)
