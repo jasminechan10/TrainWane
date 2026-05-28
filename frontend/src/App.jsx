@@ -152,39 +152,65 @@ function App() {
             borderRadius: "16px",
             padding: "20px",
             boxShadow: "0 20px 40px rgba(0, 0, 0, 0.25)",
+            height: "75vh",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           <h2 style={{ marginTop: 0, marginBottom: "12px" }}>
             Recent Sightings
           </h2>
 
-          {sightings.length === 0 ? (
-            <p style={{ color: "#94a3b8" }}>
-              No train sightings reported yet.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {sightings.map((sighting, index) => (
-                <div
-                  key={index}
-                  style={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #334155",
-                    borderRadius: "12px",
-                    padding: "12px",
-                  }}
-                >
-                  <strong>{sighting.crossing_name}</strong>
-                  <p style={{ margin: "6px 0", color: "#cbd5e1" }}>
-                    Railroad: {sighting.railroad}
-                  </p>
-                  <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>
-                    {new Date(sighting.timestamp).toLocaleString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              paddingRight: "6px",
+            }}
+          >
+            {sightings.length === 0 ? (
+              <p style={{ color: "#94a3b8" }}>
+                No train sightings reported yet.
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                {[...sightings]
+                  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                  .map((sighting, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        backgroundColor: "#0f172a",
+                        border: "1px solid #334155",
+                        borderRadius: "12px",
+                        padding: "12px",
+                      }}
+                    >
+                      <strong>{sighting.crossing_name}</strong>
+                      <p style={{ margin: "6px 0", color: "#cbd5e1" }}>
+                        Railroad: {sighting.railroad}
+                      </p>
+                      <p
+                        style={{
+                          margin: 0,
+                          color: "#94a3b8",
+                          fontSize: "14px",
+                        }}
+                      >
+                        {new Date(sighting.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
         </aside>
       </div>
     </div>
