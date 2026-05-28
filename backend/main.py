@@ -146,7 +146,7 @@ def get_db():
 
 
 def calculate_likelihood(crossing_id: int, db: Session):
-    cutoff_time = datetime.utcnow() - timedelta(minutes=45)
+    cutoff_time = datetime.now(ZoneInfo("America/Chicago")) - timedelta(minutes=45)
 
     recent_count = (
         db.query(TrainSighting)
@@ -260,3 +260,78 @@ def predict_railroad(
     db: Session = Depends(get_db),
 ):
     return calculate_time_based_likelihood(railroad, time, db)
+
+
+
+@app.get("/crossings/{crossing_id}/risk")
+def predict_crossing_risk(
+    crossing_id: int,
+    time: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        selected_hour = int(time.split(":")[0])
+    except:
+        return {"detail": "Invalid time format. Use HH:MM, like 17:30"}
+
+    crossing = None
+
+    for c in crossings:
+        if c["id"] == crossing_id:
+            crossing = c
+            break
+
+    if crossing is None:
+        return {"detail": "Crossing not found"}
+
+    sightings = (
+        db.query(TrainSighting)
+        .filter(TrainSighting.crossing_id == crossing_id)
+        .all()
+    )
+
+    matching_sightings = []
+
+    for sighting in sightings:
+        if sighting.local_hour == selected_hour:
+            matching_sightings.append(sighting)
+
+    historical_count = len(matching_sightings)
+
+    recent_count = (
+        db.query(TrainSighting)
+        .filter(TrainSighting.crossing_id == crossing_id)
+        .filter(TrainSighting.timestamp >= datetime.now(ZoneInfo("America/Chicago")) - timedelta(minutes=45))
+        .count()
+    )
+
+    score = historical_count + recent_count
+
+    if score >= 4:
+        likelihood = "High"
+    elif score >= 1:
+        likelihood = "Medium"
+    else:
+        likelihood = "Low"
+
+    reasons = []
+
+    if recent_count > 0:
+        reasons.append("Recent train activity reported at this crossing")
+
+    if historical_count > 0:
+        reasons.append("Historical sightings exist around this time at this crossing")
+
+    if not reasons:
+        reasons.append("No recent or historical train activity found for this crossing at this time")
+
+    return {
+        "crossing_id": crossing_id,
+        "crossing_name": crossing["name"],
+        "railroad": crossing["railroad"],
+        "requested_time": time,
+        "recent_sightings": recent_count,
+        "historical_sightings_near_time": historical_count,
+        "likelihood": likelihood,
+        "reasons": reasons,
+    }
