@@ -42,6 +42,9 @@ function App() {
   const [crossingRisk, setCrossingRisk] = useState(null);
   const [pendingReportCrossing, setPendingReportCrossing] = useState(null);
 
+  const [reportTrainType, setReportTrainType] = useState("Unknown");
+  const [reportDirection, setReportDirection] = useState("Unknown");
+
   const filteredCrossings = crossings.filter((crossing) =>
     `${crossing.name} ${crossing.railroad} ${crossing.city}`
       .toLowerCase()
@@ -83,8 +86,9 @@ function App() {
 
   const openReportModal = (crossing) => {
     setPendingReportCrossing(crossing);
+    setReportTrainType("Unknown");
+    setReportDirection("Unknown");
   };
-
   const confirmReportTrain = async () => {
     if (!pendingReportCrossing) return;
 
@@ -102,8 +106,8 @@ function App() {
           railroad: crossing.railroad,
           latitude: crossing.latitude,
           longitude: crossing.longitude,
-          direction: "Unknown",
-          train_type: "Unknown",
+          direction: reportDirection,
+          train_type: reportTrainType,
         }),
       });
 
@@ -867,6 +871,96 @@ function App() {
                 {pendingReportCrossing.railroad} •{" "}
                 {pendingReportCrossing.city}, {pendingReportCrossing.state}
               </p>
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  color: "#334155",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                }}
+              >
+                Train type
+              </label>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                {["Freight", "Passenger", "Unknown"].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setReportTrainType(type)}
+                    style={{
+                      padding: "9px",
+                      borderRadius: "10px",
+                      border:
+                        reportTrainType === type
+                          ? "2px solid #2563eb"
+                          : "1px solid #cbd5e1",
+                      backgroundColor:
+                        reportTrainType === type ? "#dbeafe" : "white",
+                      color: "#0f172a",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  color: "#334155",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                }}
+              >
+                Direction
+              </label>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                {["Northbound", "Southbound", "Eastbound", "Westbound", "Unknown"].map(
+                  (direction) => (
+                    <button
+                      key={direction}
+                      onClick={() => setReportDirection(direction)}
+                      style={{
+                        padding: "9px",
+                        borderRadius: "10px",
+                        border:
+                          reportDirection === direction
+                            ? "2px solid #2563eb"
+                            : "1px solid #cbd5e1",
+                        backgroundColor:
+                          reportDirection === direction ? "#dbeafe" : "white",
+                        color: "#0f172a",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {direction}
+                    </button>
+                  )
+                )}
+              </div>
             </div>
 
             <div
