@@ -8,6 +8,25 @@ import {
 
 import "leaflet/dist/leaflet.css";
 
+function formatRecentSightingTime(timestamp) {
+  if (!timestamp) return "Unknown time";
+
+  const fixedTimestamp =
+    timestamp.endsWith("Z") || timestamp.includes("+")
+      ? timestamp
+      : `${timestamp}Z`;
+
+  return new Date(fixedTimestamp).toLocaleString("en-US", {
+    timeZone: "America/Chicago",
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 function App() {
   const [crossings, setCrossings] = useState([]);
   const [sightings, setSightings] = useState([]);
@@ -84,7 +103,7 @@ function App() {
           latitude: crossing.latitude,
           longitude: crossing.longitude,
           direction: "Unknown",
-          train_type: "Freight",
+          train_type: "Unknown",
         }),
       });
 
@@ -623,7 +642,7 @@ function App() {
                   fontSize: "14px",
                 }}
               >
-                Newest reports appear first.
+                Based on user reports
               </p>
             </div>
 
@@ -676,7 +695,7 @@ function App() {
                             fontSize: "13px",
                           }}
                         >
-                          {new Date(sighting.timestamp).toLocaleString()}
+                          {formatRecentSightingTime(sighting.timestamp)}
                         </p>
                       </div>
                     ))}

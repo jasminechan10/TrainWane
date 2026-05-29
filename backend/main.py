@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from database import engine, SessionLocal
 from models import Base, TrainSighting
-from zoneinfo import ZoneInfo
 
 
 Base.metadata.create_all(bind=engine)
@@ -145,8 +145,22 @@ def get_db():
         db.close()
 
 
+def get_central_now():
+    return datetime.now(ZoneInfo("America/Chicago"))
+
+
+def normalize_timestamp(timestamp):
+    if timestamp is None:
+        return None
+
+    if timestamp.tzinfo is None:
+        return timestamp.replace(tzinfo=ZoneInfo("America/Chicago"))
+
+    return timestamp.astimezone(ZoneInfo("America/Chicago"))
+
+
 def calculate_likelihood(crossing_id: int, db: Session):
-    cutoff_time = datetime.now(ZoneInfo("America/Chicago")) - timedelta(minutes=45)
+    cutoff_time = get_central_now() - timedelta(minutes=45)
 
     recent_count = (
         db.query(TrainSighting)
@@ -182,7 +196,7 @@ def get_crossings(db: Session = Depends(get_db)):
 
 @app.post("/sightings")
 def report_train(sighting: TrainSightingCreate, db: Session = Depends(get_db)):
-    central_time = datetime.now(ZoneInfo("America/Chicago"))
+    central_time = get_central_now()
 
     new_sighting = TrainSighting(
         crossing_id=sighting.crossing_id,
@@ -214,7 +228,6 @@ def get_sightings(db: Session = Depends(get_db)):
     )
 
     return sightings
-
 
 
 def calculate_time_based_likelihood(railroad: str, selected_time: str, db: Session):
@@ -262,7 +275,6 @@ def predict_railroad(
     return calculate_time_based_likelihood(railroad, time, db)
 
 
-
 @app.get("/crossings/{crossing_id}/risk")
 def predict_crossing_risk(
     crossing_id: int,
@@ -284,32 +296,44 @@ def predict_crossing_risk(
     if crossing is None:
         return {"detail": "Crossing not found"}
 
+    now = get_central_now()
+    recent_cutoff = now - timedelta(minutes=45)
+
     sightings = (
         db.query(TrainSighting)
         .filter(TrainSighting.crossing_id == crossing_id)
         .all()
     )
 
-    matching_sightings = []
+    recent_sightings = []
+    historical_sightings_near_time = []
 
     for sighting in sightings:
-        if sighting.local_hour == selected_hour:
-            matching_sightings.append(sighting)
+        sighting_timestamp = normalize_timestamp(sighting.timestamp)
 
-    historical_count = len(matching_sightings)
+        is_recent = (
+            sighting_timestamp is not None
+            and sighting_timestamp >= recent_cutoff
+        )
 
-    recent_count = (
-        db.query(TrainSighting)
-        .filter(TrainSighting.crossing_id == crossing_id)
-        .filter(TrainSighting.timestamp >= datetime.now(ZoneInfo("America/Chicago")) - timedelta(minutes=45))
-        .count()
-    )
+        is_near_selected_hour = sighting.local_hour == selected_hour
 
-    score = historical_count + recent_count
+        if is_recent:
+            recent_sightings.append(sighting)
 
-    if score >= 4:
+        if is_near_selected_hour and not is_recent:
+            historical_sightings_near_time.append(sighting)
+
+    recent_count = len(recent_sightings)
+    historical_count = len(historical_sightings_near_time)
+
+    score = recent_count + historical_count
+
+    if recent_count >= 3:
         likelihood = "High"
-    elif score >= 1:
+    elif score >= 4:
+        likelihood = "High"
+    elif recent_count >= 1 or historical_count >= 1:
         likelihood = "Medium"
     else:
         likelihood = "Low"
@@ -320,7 +344,7 @@ def predict_crossing_risk(
         reasons.append("Recent train activity reported at this crossing")
 
     if historical_count > 0:
-        reasons.append("Historical sightings exist around this time at this crossing")
+        reasons.append("Older sightings exist around this time at this crossing")
 
     if not reasons:
         reasons.append("No recent or historical train activity found for this crossing at this time")
