@@ -143,17 +143,33 @@ function App() {
 
   const convertToMilitaryTime = () => {
     let hour = parseInt(selectedHour, 10);
-    const minute = selectedMinute.padStart(2, "0");
-
+    let minute = parseInt(selectedMinute, 10);
+  
+    if (Number.isNaN(hour) || hour < 1) {
+      hour = 12;
+    }
+  
+    if (hour > 12) {
+      hour = 12;
+    }
+  
+    if (Number.isNaN(minute) || minute < 0) {
+      minute = 0;
+    }
+  
+    if (minute > 59) {
+      minute = 59;
+    }
+  
     if (selectedPeriod === "AM" && hour === 12) {
       hour = 0;
     }
-
+  
     if (selectedPeriod === "PM" && hour !== 12) {
       hour += 12;
     }
-
-    return `${String(hour).padStart(2, "0")}:${minute}`;
+  
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   };
 
   const checkCrossingRisk = async () => {
@@ -448,47 +464,113 @@ function App() {
                 marginBottom: "12px",
               }}
             >
-              <select
+              <input
+                type="text"
+                inputMode="numeric"
                 value={selectedHour}
                 onChange={(e) => {
-                  setSelectedHour(e.target.value);
+                  const value = e.target.value.replace(/\D/g, "");
+
+                  if (value === "") {
+                    setSelectedHour("");
+                    setCrossingRisk(null);
+                    return;
+                  }
+
+                  if (value.length > 2) return;
+
+                  const numberValue = parseInt(value, 10);
+
+                  if (numberValue > 12) {
+                    setSelectedHour("12");
+                  } else {
+                    setSelectedHour(value);
+                  }
+
                   setCrossingRisk(null);
                 }}
+                onBlur={() => {
+                  if (selectedHour === "") {
+                    setSelectedHour("12");
+                    return;
+                  }
+
+                  const numberValue = parseInt(selectedHour, 10);
+
+                  if (numberValue < 1) {
+                    setSelectedHour("1");
+                  } else if (numberValue > 12) {
+                    setSelectedHour("12");
+                  } else {
+                    setSelectedHour(String(numberValue));
+                  }
+                }}
+                placeholder="Hour"
                 style={{
                   padding: "10px",
                   borderRadius: "8px",
                   border: "1px solid #475569",
                   backgroundColor: "#f8fafc",
                   color: "#0f172a",
+                  boxSizing: "border-box",
+                  width: "100%",
+                  outline: "none",
                 }}
-              >
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((hour) => (
-                  <option key={hour} value={hour}>
-                    {hour}
-                  </option>
-                ))}
-              </select>
+              />
 
-              <select
+              <input
+                type="text"
+                inputMode="numeric"
                 value={selectedMinute}
                 onChange={(e) => {
-                  setSelectedMinute(e.target.value);
+                  const value = e.target.value.replace(/\D/g, "");
+
+                  if (value.length > 2) return;
+
+                  if (value === "") {
+                    setSelectedMinute("");
+                    setCrossingRisk(null);
+                    return;
+                  }
+
+                  const numberValue = parseInt(value, 10);
+
+                  if (numberValue > 59) {
+                    setSelectedMinute("59");
+                  } else {
+                    setSelectedMinute(value);
+                  }
+
                   setCrossingRisk(null);
                 }}
+                onBlur={() => {
+                  if (selectedMinute === "") {
+                    setSelectedMinute("00");
+                    return;
+                  }
+
+                  const numberValue = parseInt(selectedMinute, 10);
+
+                  if (Number.isNaN(numberValue) || numberValue < 0) {
+                    setSelectedMinute("00");
+                  } else if (numberValue > 59) {
+                    setSelectedMinute("59");
+                  } else {
+                    setSelectedMinute(String(numberValue).padStart(2, "0"));
+                  }
+                }}
+                placeholder="Min"
                 style={{
                   padding: "10px",
                   borderRadius: "8px",
                   border: "1px solid #475569",
                   backgroundColor: "#f8fafc",
                   color: "#0f172a",
+                  boxSizing: "border-box",
+                  width: "100%",
+                  outline: "none",
                 }}
-              >
-                {["00", "15", "30", "45"].map((minute) => (
-                  <option key={minute} value={minute}>
-                    {minute}
-                  </option>
-                ))}
-              </select>
+              />
 
               <select
                 value={selectedPeriod}
@@ -502,6 +584,7 @@ function App() {
                   border: "1px solid #475569",
                   backgroundColor: "#f8fafc",
                   color: "#0f172a",
+                  outline: "none",
                 }}
               >
                 <option value="AM">AM</option>
