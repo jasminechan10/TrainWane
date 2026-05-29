@@ -22,6 +22,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+railroad_line_orders = {
+    "CN_NORMANTOWN": [
+        3,   # W Diehl Rd
+        10,  # Montgomery Rd x Normantown Rd
+        9,   # Keating Dr x Normantown Rd
+        8,   # W Hafenrichter Rd x Normantown Rd
+        4,   # W Wolfs Crossing Rd x S Normantown Rd
+        2,   # 111th St x S Normantown Rd
+        1,   # 119th St x S Normantown Rd
+    ],
+    "BNSF_AURORA": [
+        6,   # E Indian Trail x Aurora Ave
+        5,   # E Illinois Ave x Aurora Ave
+    ],
+}
 
 crossings = [
     {
@@ -387,12 +402,7 @@ def predict_crossing_risk(
     if selected_minutes is None:
         return {"detail": "Invalid time format. Use HH:MM, like 17:30"}
 
-    crossing = None
-
-    for c in crossings:
-        if c["id"] == crossing_id:
-            crossing = c
-            break
+    crossing = find_crossing_by_id(crossing_id)
 
     if crossing is None:
         return {"detail": "Crossing not found"}
@@ -427,10 +437,15 @@ def predict_crossing_risk(
         elif is_near_selected_time:
             historical_count += 1
 
+    approaching_signal = get_approaching_train_signal(crossing_id, db)
+    approaching_train = approaching_signal["approaching_train"]
+
     score = recent_count + historical_count
 
     if recent_count >= 3 or score >= 4:
         likelihood = "High"
+    elif approaching_train:
+        likelihood = "Medium"
     elif recent_count >= 1 or historical_count >= 1:
         likelihood = "Medium"
     else:
@@ -441,11 +456,14 @@ def predict_crossing_risk(
     if recent_count > 0:
         reasons.append("Recent train activity reported at this crossing")
 
+    if approaching_train:
+        reasons.append(approaching_signal["reason"])
+
     if historical_count > 0:
         reasons.append("Historical sightings exist around this time at this crossing")
 
     if not reasons:
-        reasons.append("No recent or historical train activity found for this crossing at this time")
+        reasons.append("No recent, approaching, or historical train activity found for this crossing at this time")
 
     return {
         "crossing_id": crossing_id,
@@ -454,6 +472,82 @@ def predict_crossing_risk(
         "requested_time": time,
         "recent_sightings": recent_count,
         "historical_sightings_near_time": historical_count,
+        "approaching_train": approaching_train,
+        "approaching_source_crossing": approaching_signal["source_crossing"],
         "likelihood": likelihood,
         "reasons": reasons,
+    }
+
+
+def find_crossing_by_id(crossing_id: int):
+    for crossing in crossings:
+        if crossing["id"] == crossing_id:
+            return crossing
+
+    return None
+
+
+def find_line_for_crossing(crossing_id: int):
+    for line_name, crossing_ids in railroad_line_orders.items():
+        if crossing_id in crossing_ids:
+            return line_name, crossing_ids
+
+    return None, None
+
+
+def get_approaching_train_signal(crossing_id: int, db: Session):
+    line_name, line_crossing_ids = find_line_for_crossing(crossing_id)
+
+    if line_crossing_ids is None:
+        return {
+            "approaching_train": False,
+            "source_crossing": None,
+            "reason": None,
+        }
+
+    target_index = line_crossing_ids.index(crossing_id)
+    recent_cutoff = get_utc_now() - timedelta(minutes=30)
+
+    recent_sightings = (
+        db.query(TrainSighting)
+        .filter(TrainSighting.crossing_id.in_(line_crossing_ids))
+        .all()
+    )
+
+    for sighting in recent_sightings:
+        sighting_time = normalize_timestamp_to_utc(sighting.timestamp)
+
+        if sighting_time is None or sighting_time < recent_cutoff:
+            continue
+
+        if sighting.crossing_id == crossing_id:
+            continue
+
+        if sighting.direction is None:
+            continue
+
+        direction = sighting.direction.lower()
+        source_index = line_crossing_ids.index(sighting.crossing_id)
+
+        train_is_heading_toward_target = False
+
+        if direction == "southbound" and source_index < target_index:
+            train_is_heading_toward_target = True
+
+        if direction == "northbound" and source_index > target_index:
+            train_is_heading_toward_target = True
+
+        if train_is_heading_toward_target:
+            source_crossing = find_crossing_by_id(sighting.crossing_id)
+
+            return {
+                "approaching_train": True,
+                "source_crossing": source_crossing["name"] if source_crossing else "Unknown crossing",
+                "reason": f"A {sighting.direction.lower()} train was recently reported at {source_crossing['name'] if source_crossing else 'another crossing'} and may be heading toward this crossing.",
+            }
+
+    return {
+        "approaching_train": False,
+        "source_crossing": None,
+        "reason": None,
     }
