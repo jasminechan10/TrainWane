@@ -215,8 +215,9 @@ function App() {
     >
       <header
         style={{
-          maxWidth: "1400px",
-          margin: "0 auto 22px",
+          width: "100%",
+          margin: "0 0 22px",
+          textAlign: "center",
         }}
       >
         <h1 style={{ margin: 0, fontSize: "38px" }}>TrainWane</h1>
@@ -227,10 +228,9 @@ function App() {
 
       <main
         style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
+          width: "100%",
           display: "grid",
-          gridTemplateColumns: "minmax(0, 2fr) 420px",
+          gridTemplateColumns: "minmax(0, 1fr) 420px",
           gap: "22px",
           alignItems: "start",
         }}
@@ -695,6 +695,24 @@ function App() {
                     </strong>
                   </div>
                 </div>
+                
+                {crossingRisk.approaching_train && (
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      padding: "10px",
+                      backgroundColor: "#312e81",
+                      border: "1px solid #6366f1",
+                      borderRadius: "10px",
+                      color: "#e0e7ff",
+                      fontSize: "13px",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    Possible approaching train from{" "}
+                    <strong>{crossingRisk.approaching_source_crossing}</strong>
+                  </div>
+                )}
 
                 {crossingRisk.reasons && crossingRisk.reasons.length > 0 && (
                   <p
